@@ -3,23 +3,60 @@ Robert Kim
 Python 3
 '''
 
+import argparse
 import csv
+import glob
 import itertools
 import numpy as np
 import os
 import pandas as pd
 import re
+import shutil
 import subprocess
+import yaml
 
-homedir = os.path.dirname(os.path.abspath(__file__))
-os.chdir(homedir)
-
-outdir = os.path.join(homedir, 'TRparse_outputs')
-if not os.path.exists(outdir):
-	os.makedirs(outdir)
+parser = argparse.ArgumentParser(description='CPAC subject list generation and exectuion')
+parser.add_argument('-r', '--rewrite', action='store_true', help='clear output directory and force run 3dinfo')
+args = parser.parse_args()
 
 
 def main():
+	if not os.path.exists(outdir) or args.rewrite:
+		shutil.rmtree(outdir, ignore_errors=True)
+		print("\n::: CREATING NEW {0} OUTPUT DIRECTORY :::".format(outdir))
+		os.makedirs(outdir)
+
+	flist = glob.glob(os.path.join(outdir, '*.txt'))
+	if not flist:
+		print("\n::: GENERATING CPAC SUBJECT LIST TEXT FILES :::".format(outdir))
+		run3dinfo()
+		flist = glob.glob(os.path.join(outdir, '*.txt'))
+
+	cfg = os.path.join(outdir, 'data_config.yml')
+	os.chdir(outdir)
+
+	for f in flist:
+		# @TODO: anatomicalTemplate, functionalTemplate
+		ymldata =	{ 	'dataFormat': ['Custom'],
+						'bidsBaseDir': None,
+						'anatomicalTemplate': [''],
+						'functionalTemplate': [''],
+						'subjectList': f,
+						'exclusionSubjectList': None,
+						'siteList': None,
+						'scanParametersCSV': None,
+						'awsCredentialsFile': None,
+						'outputSubjectListLocation': outdir,
+						'subjectListName': [os.path.basename(f)[ :-4]]
+					}
+
+		with open(cfg, 'w') as ymlfile:
+			yaml.dump(ymldata, ymlfile)
+
+		subprocess.call(['cpac_setup.py', cfg])
+
+
+def run3dinfo():
 	# find concatenated resting state fMRI files
 	paths = [os.path.join(homedir, x) for x in ['adult', 'adolescent', 'child']]
 	
@@ -49,10 +86,10 @@ def main():
 
 	# find subject files missing concatenated resting state fMRI files
 	subjlist = list(itertools.chain.from_iterable(next(os.walk(x))[1] for x in paths))
-	print('::: MISSING CONCATENATED FILES :::')
+	print("\n::: MISSING CONCATENATED FILES :::")
 	for x in subjlist:
 		if not any(x in y[1] for y in flist):
-			print(x)
+			print("\t{0}".format(x))
 
 	# write output to csv file
 	fieldnames = ['dir', 'subj', 'file', 'TRcount', 'TR']
@@ -62,7 +99,6 @@ def main():
 		
 		for row in output:
 			writer.writerow({fieldnames[n]:row[n] for n in range(len(row))})
-			# writer.writerow({'dir':row[0], 'file':row[1], 'TRcount':row[2], 'TR':row[3]})
 
 	# sort, group, and output to text file by subject, TR, and TR count
 	df = pd.DataFrame(output, columns=fieldnames)
@@ -77,4 +113,9 @@ def main():
 
 
 if __name__ == '__main__':
+	homedir = os.path.dirname(os.path.abspath(__file__))
+	os.chdir(homedir)
+
+	outdir = os.path.join(homedir, 'cpac')
+
 	main()
