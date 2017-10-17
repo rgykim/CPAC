@@ -22,7 +22,7 @@ args = parser.parse_args()
 
 
 def main():
-	"""sorting and analysis of structural and functional MRI files via CPAC"""
+	"""Sorting and analysis of structural and functional MRI files via CPAC"""
 
 	if args.rewrite or not op.exists(outdir):
 		shutil.rmtree(outdir, ignore_errors=True)
@@ -34,11 +34,21 @@ def main():
 		print("\n::: GENERATING CPAC SUBJECT LIST TEXT FILES :::".format(outdir))
 		run_3dinfo()
 		flist = glob.glob(op.join(outdir, '*.txt'))
-		run_cpac_setup()
+	
+	if not glob.glob(op.join(outdir, '*.csv')):
+		cfg = op.join(outdir, 'data_config.yml')
+		os.chdir(outdir)
+
+		for f in flist:
+			print("\n::: RUNNING cpac_setup.py FOR {} :::".format(f))
+			run_cpac_setup(f, cfg)
+
+		os.chdir(homedir)
+		os.remove(cfg)
 
 
 def run_3dinfo():
-	"""generates .txt files sorted by the TR and TR-count values given by `3dinfo` into the output directory"""
+	"""Generates .txt files sorted by the TR and TR-count values given by `3dinfo` into the output directory"""
 
 	# find concatenated resting state fMRI files
 	paths = [op.join(homedir, x) for x in ['adult', 'adolescent', 'child']]
@@ -97,37 +107,38 @@ def run_3dinfo():
 		np.savetxt(op.join(outdir, '%s_%d_%.3fs.txt' % tuple(groupspec)), group['subj'].values, fmt='%s')
 
 
-def run_cpac_setup():
-	"""generates .yml configuration files for `cpac_setup.py` and respective `cpac_setup.py` .csv file outputs into the output directory"""
+def run_cpac_setup(f, cfg):
+	"""Generates .yml configuration files for `cpac_setup.py` and respective `cpac_setup.py` .csv file outputs into the output directory
 
-	cfg = op.join(outdir, 'data_config.yml')
-	os.chdir(outdir)
+	Args:
+		f (str): .txt filename
+		cfg (str): .yml filename
 
-	# edit .yml file and run `cpac_setup.py`
-	for f in flist:
-		print("\n::: RUNNING cpac_setup.py FOR {} :::".format(f))
-		f_base = op.basename(f)
-		pardir = f_base[ :f_base.index('_')]
-		anatdir = op.join(homedir, '{}/{{participant}}/unprocessed/3T/T1w_MPR1/{{participant}}_3T_T1w_MPR1.nii.gz'.format(pardir))
-		funcdir = op.join(homedir, '{}/{{participant}}/unprocessed/3T/{{participant}}_3T_rfMRI_REST_ALL_AP.nii.gz'.format(pardir))
-		ymldata = {
-			'dataFormat': ['Custom'],
-			'bidsBaseDir': None,
-			'anatomicalTemplate': anatdir,
-			'functionalTemplate': funcdir,
-			'subjectList': f,
-			'exclusionSubjectList': None,
-			'siteList': None,
-			'scanParametersCSV': None,
-			'awsCredentialsFile': None,
-			'outputSubjectListLocation': outdir,
-			'subjectListName': f_base[ :-4],
-			}
+	"""
 
-		with open(cfg, 'w') as ymlfile:
-			yaml.dump(ymldata, ymlfile)
+	# edit .yml file
+	f_base = op.basename(f)
+	pardir = f_base[ :f_base.index('_')]
+	anatdir = op.join(homedir, '{}/{{participant}}/unprocessed/3T/T1w_MPR1/{{participant}}_3T_T1w_MPR1.nii.gz'.format(pardir))
+	funcdir = op.join(homedir, '{}/{{participant}}/unprocessed/3T/{{participant}}_3T_rfMRI_REST_ALL_AP.nii.gz'.format(pardir))
+	ymldata = {
+		'dataFormat': ['Custom'],
+		'bidsBaseDir': None,
+		'anatomicalTemplate': anatdir,
+		'functionalTemplate': funcdir,
+		'subjectList': f,
+		'exclusionSubjectList': None,
+		'siteList': None,
+		'scanParametersCSV': None,
+		'awsCredentialsFile': None,
+		'outputSubjectListLocation': outdir,
+		'subjectListName': f_base[ :-4],
+		}
 
-		subprocess.call(['cpac_setup.py', cfg])
+	with open(cfg, 'w') as ymlfile:
+		yaml.dump(ymldata, ymlfile)
+
+	subprocess.call(['cpac_setup.py', cfg])
 
 
 if __name__ == '__main__':
@@ -138,4 +149,4 @@ if __name__ == '__main__':
 
 	main()
 
-	print("\n ::: COMPLETED :::\n")
+	print("\n::: COMPLETED :::\n")
