@@ -23,7 +23,7 @@ args = parser.parse_args()
 def main():
 	if not os.path.exists(outdir) or args.rewrite:
 		shutil.rmtree(outdir, ignore_errors=True)
-		print("\n::: CREATING NEW {0} OUTPUT DIRECTORY :::".format(outdir))
+		print("\n::: CREATING NEW {} OUTPUT DIRECTORY :::".format(outdir))
 		os.makedirs(outdir)
 
 	flist = glob.glob(os.path.join(outdir, '*.txt'))
@@ -36,19 +36,24 @@ def main():
 	os.chdir(outdir)
 
 	for f in flist:
-		# @TODO: anatomicalTemplate, functionalTemplate
-		ymldata =	{ 	'dataFormat': ['Custom'],
-						'bidsBaseDir': None,
-						'anatomicalTemplate': [''],
-						'functionalTemplate': [''],
-						'subjectList': f,
-						'exclusionSubjectList': None,
-						'siteList': None,
-						'scanParametersCSV': None,
-						'awsCredentialsFile': None,
-						'outputSubjectListLocation': outdir,
-						'subjectListName': [os.path.basename(f)[ :-4]]
-					}
+		print('\n::: RUNNING cpac_setup.py FOR {} :::'.format(f))
+		f_base = os.path.basename(f)
+		pardir = f_base[ :f_base.index('_')]
+		anatdir = os.path.join(homedir, '{}/{{participant}}/unprocessed/3T/T1w_MPR1/{{participant}}_3T_T1w_MPR1.nii.gz'.format(pardir))
+		funcdir = os.path.join(homedir, '{}/{{participant}}/unprocessed/3T/{{participant}}_3T_rfMRI_REST_ALL_AP.nii.gz'.format(pardir))
+		ymldata = {
+			'dataFormat': ['Custom'],
+			'bidsBaseDir': None,
+			'anatomicalTemplate': anatdir,
+			'functionalTemplate': funcdir,
+			'subjectList': f,
+			'exclusionSubjectList': None,
+			'siteList': None,
+			'scanParametersCSV': None,
+			'awsCredentialsFile': None,
+			'outputSubjectListLocation': outdir,
+			'subjectListName': f_base[ :-4],
+			}
 
 		with open(cfg, 'w') as ymlfile:
 			yaml.dump(ymldata, ymlfile)
@@ -89,7 +94,7 @@ def run3dinfo():
 	print("\n::: MISSING CONCATENATED FILES :::")
 	for x in subjlist:
 		if not any(x in y[1] for y in flist):
-			print("\t{0}".format(x))
+			print("\t{}".format(x))
 
 	# write output to csv file
 	fieldnames = ['dir', 'subj', 'file', 'TRcount', 'TR']
@@ -119,3 +124,5 @@ if __name__ == '__main__':
 	outdir = os.path.join(homedir, 'cpac')
 
 	main()
+
+	print('\n ::: COMPLETED :::')
