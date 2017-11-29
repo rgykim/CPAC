@@ -63,7 +63,7 @@ def run_3dinfo():
 	output = []
 	for x in flist:
 		fpath = op.relpath(op.join(x[0], x[1]), homedir)
-		temp = fpath.split('/')
+		temp = fpath.split(os.sep)
 		[pardir, subjname, filename] = [temp[0], temp[1], temp[-1]]	
 
 		funcout = subprocess.check_output(['3dinfo', fpath]).decode('utf-8')
